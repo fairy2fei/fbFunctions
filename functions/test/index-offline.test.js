@@ -1,9 +1,8 @@
-const chai = require('chai');
-const assert = chai.assert;
-const sinon = require('sinon');
 const admin = require('firebase-admin');
-const test = require('firebase-functions-test')();
-
+const chai = require('chai');
+//const test = require('firebase-functions-test');
+const sinon = require('sinon');
+const assert = chai.assert;
 describe('Cloud Functions', () => {
   let myFunctions, adminInitStub;
   before(() => {
@@ -13,64 +12,38 @@ describe('Cloud Functions', () => {
 
   after(() => {
     adminInitStub.restore();
-    test.cleanup();
   });
-
-  describe('makeUpperCase', () => {
-    it('should upper case john and write it to /uppercase', () => {
-      const childParam = 'uppercase';
-      const setParam = 'JOHN';
-      const childStub = sinon.stub();
-      const setStub = sinon.stub();
-      const snap = {
-        val: () => 'john',
-        ref: {
-          parent: {
-            child: childStub,
-          }
-        }
-      };
-      childStub.withArgs(childParam).returns({ set: setStub });
-      setStub.withArgs(setParam).returns(true);
-
-      const wrapped = test.wrap(myFunctions.makeUppercase);
-
-      return assert.equal(wrapped(snap), true);
-    })
-  });
-
   describe('addMessage', () => {
-    let oldDatabase;
+  let oldDatabase;
     before(() => {
-      oldDatabase = admin.database;
+      oldDatabase = admin.firestore;
     });
 
     after(() => {
-      admin.database = oldDatabase;
+      admin.firestore = oldDatabase;
     });
+    it('should return a writeTime', (done) => {
+        const writeTime = '3235235';
+        const setParam = { name: 'john' };
+        const firestoreStub = sinon.stub();
+        const setStub = sinon.stub();
+        Object.defineProperty(admin, 'firestore', { get: () => firestoreStub });
+        firestoreStub.returns({
+          collection: (path) => ({ 
+            doc: () => ({
+              set: setStub}),
+            })
+          })
+        setStub.withArgs(setParam).returns(Promise.resolve({ writeTime }));
 
-    it('should return a 303 redirect', (done) => {
-      const refParam = '/doc';
-      const pushParam = { name: 'john' };
-      const databaseStub = sinon.stub();
-      const refStub = sinon.stub();
-      const pushStub = sinon.stub();
-
-      Object.defineProperty(admin, 'database', { get: () => databaseStub });
-      databaseStub.returns({ ref: refStub });
-      refStub.withArgs(refParam).returns({ push: pushStub });
-      pushStub.withArgs(pushParam).returns(Promise.resolve({ ref: 'redirectRef' }));
-
-      const req = { query: {text: 'john'} };
-      const res = {
-        redirect: (code, url) => {
-          assert.equal(code, 303);
-          assert.equal(url, 'redirectRef');
-          done();
-        }
-      };
-
-      myFunctions.addMessage(req, res);
-    });
-  });
-})
+        const req = { query: {text: 'john'} };
+        const res = {
+            send: (object) => {
+              assert.equal(object, writeTime);
+              done();
+            }
+        };
+        myFunctions.addMessage(req, res);
+    });    
+});
+});
